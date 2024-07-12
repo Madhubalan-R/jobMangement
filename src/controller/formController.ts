@@ -107,7 +107,8 @@ export const retryFailedForms = async (accessToken: string) => {
   const failedForms = await formDataRepository.find({ where: { status: FormStatus.FAILED } });
 
   for (const form of failedForms) {
-    if (form.retryCount < 5) { // Retry up to 5 times
+     // Retry up to 5 times
+    if (form.retryCount < 5) {
       try {
         form.status = FormStatus.RETRY;
         form.retryCount += 1;
@@ -116,7 +117,7 @@ export const retryFailedForms = async (accessToken: string) => {
 
         const response = await axios.get('https://people.zoho.com/people/api/forms', {
           headers: {
-            Authorization: `Bearer ${accessToken}`, // Replace with your actual token retrieval method
+            Authorization: `Bearer ${accessToken}`, 
           },
         });
 
@@ -140,7 +141,7 @@ export const retryFailedForms = async (accessToken: string) => {
             newFormData.formLinkName = formLinkName;
             newFormData.PermissionDetails = permissionDetails;
             newFormData.status = FormStatus.COMPLETED;
-            await formDataRepository.save(newFormData); // Save the completed form data
+            await formDataRepository.save(newFormData); 
             sendWebSocketMessage({ status: FormStatus.COMPLETED, id:form.id });
 
           }
