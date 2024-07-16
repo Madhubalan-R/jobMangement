@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { Request, Response } from 'express';
 import { AppDataSource } from '../dbconfig';
-import { FormData, FormStatus } from '../entites/FormData';
+import { FormApiData, FormStatus } from '../entites/FormApiData';
 import axios from 'axios';
 import { WebSocket, WebSocketServer } from 'ws';
 
@@ -34,7 +34,7 @@ export const getForms = async (req: CustomRequest, res: Response) => {
   }
 
   try {
-    const formDataRepository = AppDataSource.getRepository(FormData);
+    const FormApiDataRepository = AppDataSource.getRepository(FormApiData);
 
     // Fetch data from external API
     const response = await axios.get('https://people.zoho.com/people/api/forms', {
@@ -50,6 +50,8 @@ export const getForms = async (req: CustomRequest, res: Response) => {
 
     const apiData = response.data.response.result;
 
+    const savedForms= [];
+
     for (const api of apiData) {
       const componentId = api.componentId ? parseInt(api.componentId, 10) : 0;
       const formLinkName = api.formLinkName || '';
@@ -57,39 +59,43 @@ export const getForms = async (req: CustomRequest, res: Response) => {
 
       if (!isNaN(componentId) && formLinkName && permissionDetails) {
         try {
-          const formDataAdded = new FormData();
-          formDataAdded.componentId = componentId;
-          formDataAdded.formLinkName = formLinkName;
-          formDataAdded.PermissionDetails = permissionDetails;
-          formDataAdded.status = FormStatus.ADDED;
-          await formDataRepository.save(formDataAdded);
+          const FormApiDataAdded = new FormApiData();
+          FormApiDataAdded.componentId = componentId;
+          FormApiDataAdded.formLinkName = formLinkName;
+          FormApiDataAdded.PermissionDetails = permissionDetails;
+          FormApiDataAdded.status = FormStatus.ADDED;
+          await FormApiDataRepository.save(FormApiDataAdded);
           sendWebSocketMessage({ status: FormStatus.ADDED});
+          savedForms.push(FormApiDataAdded);
 
-          const formDataInProgress = new FormData();
-          formDataInProgress.componentId = componentId;
-          formDataInProgress.formLinkName = formLinkName;
-          formDataInProgress.PermissionDetails = permissionDetails;
-          formDataInProgress.status = FormStatus.IN_PROGRESS;
-          await formDataRepository.save(formDataInProgress);
+          const FormApiDataInProgress = new FormApiData();
+          FormApiDataInProgress.componentId = componentId;
+          FormApiDataInProgress.formLinkName = formLinkName;
+          FormApiDataInProgress.PermissionDetails = permissionDetails;
+          FormApiDataInProgress.status = FormStatus.IN_PROGRESS;
+          await FormApiDataRepository.save(FormApiDataInProgress);
           sendWebSocketMessage({ status: FormStatus.IN_PROGRESS});
+          savedForms.push(FormApiDataInProgress);
 
           const processedStatus = processData();
-          const formDataCompletedOrFailed = new FormData();
+          const FormApiDataCompletedOrFailed = new FormApiData();
 
-          formDataCompletedOrFailed.componentId = componentId;
-          formDataCompletedOrFailed.formLinkName = formLinkName;
-          formDataCompletedOrFailed.PermissionDetails = permissionDetails;
-          formDataCompletedOrFailed.status = processedStatus ? FormStatus.COMPLETED : FormStatus.FAILED;
-          await formDataRepository.save(formDataCompletedOrFailed);
-          sendWebSocketMessage({ status: formDataCompletedOrFailed.status});
+          FormApiDataCompletedOrFailed.componentId = componentId;
+          FormApiDataCompletedOrFailed.formLinkName = formLinkName;
+          FormApiDataCompletedOrFailed.PermissionDetails = permissionDetails;
+          FormApiDataCompletedOrFailed.status = processedStatus ? FormStatus.COMPLETED : FormStatus.FAILED;
+          await FormApiDataRepository.save(FormApiDataCompletedOrFailed);
+          sendWebSocketMessage({ status: FormApiDataCompletedOrFailed.status});
+
+          savedForms.push(FormApiDataCompletedOrFailed);
+
         } catch (error) {
           console.error('Error saving form data:', error);
           return res.status(500).json({ error: 'Failed to save form data' });
         }
       }
     }
-
-    return res.json({ message: 'Forms processed successfully' });
+    return res.json(savedForms);
   } catch (error) {
     console.error('Error fetching forms:', error);
     sendWebSocketMessage({ status: FormStatus.FAILED});
@@ -103,8 +109,8 @@ const processData = () => {
 };
 
 export const retryFailedForms = async (accessToken: string) => {
-  const formDataRepository = AppDataSource.getRepository(FormData);
-  const failedForms = await formDataRepository.find({ where: { status: FormStatus.FAILED } });
+  const FormApiDataRepository = AppDataSource.getRepository(FormApiData);
+  const failedForms = await FormApiDataRepository.find({ where: { status: FormStatus.FAILED } });
 
   for (const form of failedForms) {
      // Retry up to 5 times
@@ -112,7 +118,7 @@ export const retryFailedForms = async (accessToken: string) => {
       try {
         form.status = FormStatus.RETRY;
         form.retryCount += 1;
-        await formDataRepository.save(form);
+        await FormApiDataRepository.save(form);
        sendWebSocketMessage({ status: FormStatus.RETRY, id:form.id });
 
         const response = await axios.get('https://people.zoho.com/people/api/forms', {
@@ -123,7 +129,7 @@ export const retryFailedForms = async (accessToken: string) => {
 
         if (!response.data || !response.data.response.result) {
           form.status = FormStatus.FAILED;
-          await formDataRepository.save(form);
+          await FormApiDataRepository.save(form);
           sendWebSocketMessage({ status: FormStatus.FAILED, id:form.id });
 
           continue;
@@ -136,12 +142,12 @@ export const retryFailedForms = async (accessToken: string) => {
           const permissionDetails = api.PermissionDetails ? JSON.stringify(api.PermissionDetails) : '';
 
           if (!isNaN(componentId) && formLinkName && permissionDetails) {
-            const newFormData = new FormData();
-            newFormData.componentId = componentId;
-            newFormData.formLinkName = formLinkName;
-            newFormData.PermissionDetails = permissionDetails;
-            newFormData.status = FormStatus.COMPLETED;
-            await formDataRepository.save(newFormData); 
+            const newFormApiData = new FormApiData();
+            newFormApiData.componentId = componentId;
+            newFormApiData.formLinkName = formLinkName;
+            newFormApiData.PermissionDetails = permissionDetails;
+            newFormApiData.status = FormStatus.COMPLETED;
+            await FormApiDataRepository.save(newFormApiData); 
             sendWebSocketMessage({ status: FormStatus.COMPLETED, id:form.id });
 
           }
@@ -150,7 +156,7 @@ export const retryFailedForms = async (accessToken: string) => {
       } catch (error) {
         console.error('Error retrying form data fetch:', error);
         form.status = FormStatus.FAILED;
-        await formDataRepository.save(form); // Update status to FAILED
+        await FormApiDataRepository.save(form); // Update status to FAILED
         sendWebSocketMessage({ status: FormStatus.FAILED, id:form.id });
 
       }
@@ -186,8 +192,8 @@ cron.schedule('0 * * * *', async () => {
 export const getFormById = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const formDataRepository = AppDataSource.getRepository(FormData);
-    const form = await formDataRepository.findOne({ where: { id: parseInt(id) } });
+    const FormApiDataRepository = AppDataSource.getRepository(FormApiData);
+    const form = await FormApiDataRepository.findOne({ where: { id: parseInt(id) } });
 
     if (!form) {
       return res.status(404).json({ error: 'Form not found' });
@@ -202,8 +208,8 @@ export const getFormById = async (req: Request, res: Response) => {
 
 export const getAllForms = async (req: Request, res: Response) => {
   try {
-    const formDataRepository = AppDataSource.getRepository(FormData);
-    const forms = await formDataRepository.find();
+    const FormApiDataRepository = AppDataSource.getRepository(FormApiData);
+    const forms = await FormApiDataRepository.find();
   
     res.json(forms);
   } catch (error) {

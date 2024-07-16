@@ -2,7 +2,7 @@ import { addSeconds } from 'date-fns';
 import { AppDataSource } from '../dbconfig';
 import { Token } from '../entites/Token';
 import axios from 'axios';
-import { FormData, FormStatus } from '../entites/FormData';
+import { FormApiData, FormStatus } from '../entites/FormApiData';
 
 
 
@@ -22,6 +22,7 @@ const getAccessTokenFromCode = async (code: string) => {
   } catch (error) {
     console.error('Error exchanging authorization code for access token:', error);
     throw error;
+
   }
 };
 
@@ -84,12 +85,12 @@ const refreshToken = async (refreshToken: string) => {
   }
 };
 export const updateFormStatus = async(id: number, status:FormStatus) => {
-  const formDataRepository = AppDataSource.getRepository(FormData);
-  const form = await formDataRepository.findOne({where:{ id }});
+  const formApiDataRepository = AppDataSource.getRepository(FormApiData);
+  const form = await formApiDataRepository.findOne({where:{ id }});
 
   if(form){
       form.status = status;
-      await formDataRepository.save(form);
+      await formApiDataRepository.save(form);
   }
   else{
     console.error(`Form with id ${id} not found`);

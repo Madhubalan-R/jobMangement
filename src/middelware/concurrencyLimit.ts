@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import getClientIp from '../utils/getClintIp';
 
 const concurrentRequests: { [key: string]: number } = {};
-const MAX_CONCURRENT_REQUESTS = 6;
+const MAX_CONCURRENT_REQUESTS = 20;
 
 const concurrencyLimit = (req: Request, res: Response, next: NextFunction) => {
   const ip = getClientIp(req);

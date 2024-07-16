@@ -6,7 +6,7 @@ import { Router } from "express";
 const router = Router();
 router.use(refreshTokenMiddleware);
 
-router.post('/forms',getForms);
+router.get('/forms',getForms);
 router.post('/retryForms',retryFailedForms);
 router.get('/getAllForms',getAllForms);
 router.get('/:id', getFormById);

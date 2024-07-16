@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import express from 'express';
+import cors from 'cors';
 import rateLimit from './middelware/rateLimit';
 import concurrencyLimit from './middelware/concurrencyLimit';
 import { Server as WebSocketServer } from 'ws';
@@ -24,6 +25,10 @@ app.use('/api/', rateLimit);
 app.use('/api/', concurrencyLimit);
 app.use('/api', router);
 
+app.use(cors({
+  origin: 'http://localhost:5173', 
+  methods: ['GET', 'POST'], 
+}));
 wss.on('connection', (ws) => {
   console.log('WebSocket connection established');
   ws.on('message', (message) => {

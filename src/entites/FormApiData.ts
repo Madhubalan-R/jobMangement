@@ -9,7 +9,7 @@ export enum FormStatus{
  }
 
 @Entity()
-export class FormData {
+export class FormApiData {
   @PrimaryGeneratedColumn()
   id: number=0;
 
