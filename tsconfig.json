@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+      "types": ["node", "express-session"],
+      "lib": ["es6", "dom"],
+      "target": "es6",
+      "module": "commonjs",
+      "strict": true,
+      "esModuleInterop": true,
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
+      "moduleResolution": "node",
+      "outDir": "./dist",
+      "baseUrl": "./src",
+      "resolveJsonModule": true
+    },
+    "include": ["src/**/*.ts","custom.d.ts"],
+    "exclude": ["node_modules"]
+  }
+  
